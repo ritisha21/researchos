@@ -11,10 +11,11 @@ delegates to the service layer, and serialises output.
 All business logic lives in services/roadmap_service.py.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
+from app.rate_limit import limiter
 from app.schemas.roadmap import RoadmapRequest, RoadmapResponse
 from app.services.roadmap_service import roadmap_service
 from app.utils.logger import get_logger
@@ -33,17 +34,20 @@ router = APIRouter(prefix="/roadmap", tags=["Research Navigator"])
         "Given a research topic (e.g. 'Computer Vision'), returns a structured "
         "learning roadmap including prerequisites, foundational → advanced papers, "
         "research frontiers, and open problems. "
-        "Results are cached in PostgreSQL; use `force_refresh=true` to regenerate."
+        "Results are cached in PostgreSQL; use `force_refresh=true` to regenerate.\n\n"
+        "**Rate limit:** 10 requests/minute per IP (Gemini-backed, uncached requests are expensive)."
     ),
 )
+@limiter.limit("10/minute")
 async def generate_roadmap(
-    request: RoadmapRequest,
+    request: Request,
+    body: RoadmapRequest,
     db: AsyncSession = Depends(get_db),
 ) -> RoadmapResponse:
-    logger.info("route.roadmap.post", topic=request.topic)
+    logger.info("route.roadmap.post", topic=body.topic)
 
     try:
-        roadmap = await roadmap_service.generate_roadmap(request, db)
+        roadmap = await roadmap_service.generate_roadmap(body, db)
     except ValueError as exc:
         # LLM returned malformed output
         logger.error("route.roadmap.value_error", error=str(exc))

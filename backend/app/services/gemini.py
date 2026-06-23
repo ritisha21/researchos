@@ -15,11 +15,17 @@ import asyncio
 
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import settings
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Transient errors worth retrying — quota bursts, temporary outages, timeouts.
+# Does NOT retry on bad API keys or invalid requests (those won't fix themselves).
+RETRYABLE_EXCEPTIONS = (ResourceExhausted, ServiceUnavailable, DeadlineExceeded)
 
 
 class GeminiService:
@@ -57,12 +63,22 @@ class GeminiService:
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+        stop=stop_after_attempt(4),
+        reraise=True,
+    )
     async def generate(self, prompt: str) -> str:
         """
         Send a prompt to Gemini and return the text response.
 
+        Retries up to 4 times with exponential backoff (2s, 4s, 8s, 16s)
+        on transient errors: rate limits, service unavailability, timeouts.
+        Does not retry on permanent errors like invalid API keys.
+
         Raises:
-            GeminiError: On API failure after retries.
+            The underlying exception after retries are exhausted.
         """
         logger.debug("gemini.generate", prompt_length=len(prompt))
 

@@ -9,8 +9,11 @@ import os
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
+from app.rate_limit import limiter
 from app.utils.logger import configure_logging, get_logger
 
 # Configure logging FIRST before anything else
@@ -22,15 +25,40 @@ from app.database.session import engine
 from app.routes import chat, health, papers, roadmap, upload
 
 
+async def run_migrations() -> None:
+    """
+    Run Alembic migrations programmatically at startup.
+
+    This runs `alembic upgrade head` using the sync driver in a thread,
+    since Alembic's migration runner is synchronous. Safe to call on every
+    startup — Alembic tracks applied versions in the alembic_version table
+    and is a no-op if already up to date.
+    """
+    import asyncio
+    from alembic import command
+    from alembic.config import Config
+
+    def _upgrade():
+        cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+        # Use the sync psycopg2 URL for Alembic (it doesn't support asyncpg directly)
+        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        cfg.set_main_option("sqlalchemy.url", sync_url)
+        command.upgrade(cfg, "head")
+
+    await asyncio.to_thread(_upgrade)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    logger.info("researchos.startup", version="1.0.0", env=settings.app_env)
+    logger.info("researchos.startup", version="1.1.0", env=settings.app_env)
 
     import_all_models()
 
-    from app.database.base import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Run Alembic migrations instead of create_all().
+    # create_all() only adds missing tables — it never alters existing
+    # columns, which silently causes schema drift in production. Alembic
+    # tracks every change as a versioned, reversible migration.
+    await run_migrations()
     logger.info("researchos.db.ready")
 
     os.makedirs(settings.upload_dir, exist_ok=True)
@@ -63,6 +91,9 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         lifespan=lifespan,
     )
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.add_middleware(
         CORSMiddleware,

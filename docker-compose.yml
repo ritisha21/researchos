@@ -29,7 +29,7 @@ services:
     environment:
       DATABASE_URL: "postgresql+asyncpg://researchos:researchos@postgres:5432/researchos_db"
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       - ./backend:/app          # Hot-reload in development
       - uploads_data:/app/uploads

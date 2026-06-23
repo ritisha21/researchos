@@ -8,15 +8,17 @@ POST /api/v1/chat
   Returns an answer grounded in the paper's content, with citations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
+from app.rate_limit import limiter
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat_service import chat_service
 from app.services.paper_service import paper_service
 from app.utils.logger import get_logger
-import uuid
 
 logger = get_logger(__name__)
 
@@ -33,18 +35,20 @@ router = APIRouter(prefix="/chat", tags=["Phase 5 — Paper Chat"])
         "- `question`: your question about the paper\n"
         "- `conversation_history`: optional prior messages for multi-turn chat\n\n"
         "Returns an answer with inline citations referencing specific sections "
-        "of the paper."
+        "of the paper.\n\n"
+        "**Rate limit:** 20 messages/minute per IP."
     ),
 )
+@limiter.limit("20/minute")
 async def chat_with_paper(
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     db: AsyncSession = Depends(get_db),
 ) -> ChatResponse:
-    logger.info("route.chat", paper_id=request.paper_id, question=request.question[:80])
+    logger.info("route.chat", paper_id=body.paper_id, question=body.question[:80])
 
-    # Validate paper exists and is indexed
     try:
-        paper_uuid = uuid.UUID(request.paper_id)
+        paper_uuid = uuid.UUID(body.paper_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,7 +59,7 @@ async def chat_with_paper(
     if not paper:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Paper {request.paper_id} not found. Upload it first via POST /api/v1/upload.",
+            detail=f"Paper {body.paper_id} not found. Upload it first via POST /api/v1/upload.",
         )
     if not paper.is_indexed:
         raise HTTPException(
@@ -64,7 +68,7 @@ async def chat_with_paper(
         )
 
     try:
-        return await chat_service.chat(request)
+        return await chat_service.chat(body)
     except Exception as exc:
         logger.error("route.chat.error", error=str(exc))
         raise HTTPException(

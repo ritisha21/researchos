@@ -11,12 +11,13 @@ POST /api/v1/upload
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.session import get_db
 from app.models.paper import Paper
+from app.rate_limit import limiter
 from app.services.pdf_service import pdf_service
 from app.utils.logger import get_logger
 
@@ -38,10 +39,13 @@ ALLOWED_CONTENT_TYPES = {"application/pdf", "application/x-pdf"}
         "3. Chunk into overlapping segments\n"
         "4. Embed via Gemini and store in ChromaDB\n"
         "5. Create a Paper record in PostgreSQL\n\n"
-        "Returns the paper_id to use with the /chat endpoint."
+        "Returns the paper_id to use with the /chat endpoint.\n\n"
+        "**Rate limit:** 5 uploads/minute per IP (PDF extraction + embedding is costly)."
     ),
 )
+@limiter.limit("5/minute")
 async def upload_pdf(
+    request: Request,
     file: UploadFile = File(..., description="PDF file to upload"),
     title: str = Form(..., description="Paper title"),
     authors: str = Form(default="", description="Comma-separated author names"),

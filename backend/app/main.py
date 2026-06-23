@@ -39,8 +39,10 @@ async def run_migrations() -> None:
     from alembic.config import Config
 
     def _upgrade():
-        cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-        # Use the sync psycopg2 URL for Alembic (it doesn't support asyncpg directly)
+        # __file__ = /app/app/main.py  →  alembic.ini is at /app/alembic.ini
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        alembic_ini = os.path.join(base_dir, "alembic.ini")
+        cfg = Config(alembic_ini)
         sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
         cfg.set_main_option("sqlalchemy.url", sync_url)
         command.upgrade(cfg, "head")
@@ -54,12 +56,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     import_all_models()
 
-    # Run Alembic migrations instead of create_all().
-    # create_all() only adds missing tables — it never alters existing
-    # columns, which silently causes schema drift in production. Alembic
-    # tracks every change as a versioned, reversible migration.
-    await run_migrations()
-    logger.info("researchos.db.ready")
+    # Try Alembic first; fall back to create_all so the app always starts.
+    try:
+        await run_migrations()
+        logger.info("researchos.db.ready", method="alembic")
+    except Exception as exc:
+        logger.warning("researchos.alembic_failed", error=str(exc), fallback="create_all")
+        from app.database.base import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("researchos.db.ready", method="create_all")
 
     os.makedirs(settings.upload_dir, exist_ok=True)
     os.makedirs(settings.chroma_persist_dir, exist_ok=True)

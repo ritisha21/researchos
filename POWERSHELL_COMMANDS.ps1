@@ -2,13 +2,13 @@
 # ResearchOS — Windows PowerShell Testing Guide (All 5 Phases)
 # =============================================================================
 # PowerShell's `curl` = Invoke-WebRequest. Use commands below instead.
-# EASIEST OPTION: open http://localhost:8080/docs in your browser (Swagger UI)
+# EASIEST OPTION: open http://localhost:8088/docs in your browser (Swagger UI)
 # =============================================================================
 
 
 # ── HEALTH ───────────────────────────────────────────────────────────────────
-Invoke-RestMethod -Uri "http://localhost:8080/health"
-Invoke-RestMethod -Uri "http://localhost:8080/health/ready"
+Invoke-RestMethod -Uri "http://localhost:8088/health"
+Invoke-RestMethod -Uri "http://localhost:8088/health/ready"
 
 
 # =============================================================================
@@ -16,15 +16,15 @@ Invoke-RestMethod -Uri "http://localhost:8080/health/ready"
 # =============================================================================
 
 $body = @{ topic = "Computer Vision"; force_refresh = $false } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/roadmap" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/roadmap" `
     -Method POST -Body $body -ContentType "application/json"
 
 $body = @{ topic = "Reinforcement Learning" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/roadmap" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/roadmap" `
     -Method POST -Body $body -ContentType "application/json"
 
 $body = @{ topic = "Graph Neural Networks" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/roadmap" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/roadmap" `
     -Method POST -Body $body -ContentType "application/json"
 
 
@@ -33,8 +33,8 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/roadmap" `
 # =============================================================================
 
 # Quick GET
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/search?q=ResNet&limit=5"
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/search?q=transformer&limit=10&sort_by=citation_count"
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/search?q=ResNet&limit=5"
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/search?q=transformer&limit=10&sort_by=citation_count"
 
 # POST — both sources, sorted by citations
 $body = @{
@@ -44,16 +44,16 @@ $body = @{
     sort_by      = "citation_count"
     save_results = $true
 } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/search" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/search" `
     -Method POST -Body $body -ContentType "application/json"
 
 # arXiv only
 $body = @{ query = "federated learning"; limit = 5; sources = @("arxiv") } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/search" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/search" `
     -Method POST -Body $body -ContentType "application/json"
 
 # Get saved paper by UUID
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/PASTE-UUID-HERE"
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/PASTE-UUID-HERE"
 
 
 # =============================================================================
@@ -66,12 +66,12 @@ $body = @{
     abstract      = "We present a residual learning framework to ease training of deep networks. We explicitly reformulate the layers as learning residual functions with reference to the layer inputs."
     force_refresh = $false
 } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/summarise" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/summarise" `
     -Method POST -Body $body -ContentType "application/json"
 
 # Title only (no abstract)
 $body = @{ title = "Attention Is All You Need" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/summarise" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/summarise" `
     -Method POST -Body $body -ContentType "application/json"
 
 # --- Explain (beginner-friendly) ---
@@ -79,17 +79,17 @@ $body = @{
     title    = "BERT: Pre-training of Deep Bidirectional Transformers"
     abstract = "We introduce BERT, a language representation model designed to pre-train deep bidirectional representations from unlabeled text."
 } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/explain" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/explain" `
     -Method POST -Body $body -ContentType "application/json"
 
 # --- Notes ---
 $body = @{ title = "Generative Adversarial Networks" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/notes" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/notes" `
     -Method POST -Body $body -ContentType "application/json"
 
 # --- Takeaways ---
 $body = @{ title = "Dropout: A Simple Way to Prevent Neural Networks from Overfitting" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/takeaways" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/takeaways" `
     -Method POST -Body $body -ContentType "application/json"
 
 # --- Literature Review ---
@@ -101,7 +101,7 @@ $body = @{
     )
     focus  = "compare how each paper advances language model pre-training"
 } | ConvertTo-Json -Depth 5
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/literature-review" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/literature-review" `
     -Method POST -Body $body -ContentType "application/json"
 
 
@@ -140,7 +140,7 @@ $closingBytes = $encoding.GetBytes("`r`n--$boundary--`r`n")
 $fullBody   = $bodyBytes + $pdfBytes + $closingBytes
 
 $response = Invoke-RestMethod `
-    -Uri         "http://localhost:8080/api/v1/upload" `
+    -Uri         "http://localhost:8088/api/v1/upload" `
     -Method      POST `
     -Body        $fullBody `
     -ContentType "multipart/form-data; boundary=$boundary"
@@ -163,7 +163,7 @@ $body = @{
     paper_id = $paperId
     question = "What are the key contributions of this paper?"
 } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/chat" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/chat" `
     -Method POST -Body $body -ContentType "application/json"
 
 # Multi-turn conversation
@@ -175,7 +175,7 @@ $body = @{
         @{ role = "assistant"; content = "The paper introduces residual connections..." }
     )
 } | ConvertTo-Json -Depth 5
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/chat" `
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/chat" `
     -Method POST -Body $body -ContentType "application/json"
 
 # More questions to try:
@@ -190,11 +190,11 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/chat" `
 # =============================================================================
 
 # Pretty-print any response
-Invoke-RestMethod -Uri "http://localhost:8080/api/v1/papers/search?q=ResNet&limit=3" |
+Invoke-RestMethod -Uri "http://localhost:8088/api/v1/papers/search?q=ResNet&limit=3" |
     ConvertTo-Json -Depth 10
 
 # Open Swagger UI (recommended — easier than PowerShell)
-Start-Process "http://localhost:8080/docs"
+Start-Process "http://localhost:8088/docs"
 
 # Check all routes
-Invoke-RestMethod -Uri "http://localhost:8080/openapi.json" | ConvertTo-Json -Depth 3
+Invoke-RestMethod -Uri "http://localhost:8088/openapi.json" | ConvertTo-Json -Depth 3

@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 export const metadata: Metadata = {
   title: 'ResearchOS — AI Research Platform',
   description: 'AI-powered research learning platform.',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
